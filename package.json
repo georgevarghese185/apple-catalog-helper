@@ -1,0 +1,14 @@
+{
+  "name": "apple-catalog-helper",
+  "version": "1.0.0",
+  "description": "Given an apple catalog link for macOS, this script will help fetch links for downloading the required macOS installer files",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "George Varghese M.",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "node-fetch": "^2.3.0",
+    "xml2js": "^0.4.19"
+  }
+}
