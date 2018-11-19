@@ -1,6 +1,8 @@
 const fs = require('fs');
 const fetch = require('node-fetch');
 const readline = require('readline');
+const ask = require('./ask')
+const verifyDir = require('./files').verifyDir
 
 // looks for a downloading.json file in the given dir. A downloading.json is a JSON
 // file containing information about how much of each file in that dir has already
@@ -192,56 +194,10 @@ const createDownloader = function (url, dir, fileName, fileSize, completed, down
 }
 
 
-
-const ask = async function(msg) {
-  return new Promise(function(resolve, reject) {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-    rl.question(msg, (input) => {
-      rl.close();
-      resolve(input);
-    });
-  });
-}
-
 //Make a "headers only" request to the server to get the total file size
 const getFileSize = async function(url) {
   let resp = await fetch(url, {method: "HEAD"});
   return parseInt(resp.headers.get("content-length"));
-}
-
-//Verify that the given dir exists, that it is a dir, and that we have sufficient
-//write permissions on it. Throws an error of these are not satisfied
-const verifyDir = async function(dir) {
-  let lstat = function(d) {
-    return new Promise(function(resolve, reject) {
-      fs.lstat(d, (err, stat) => err ? reject(err) : resolve(stat));
-    });
-  }
-  let access = function(d) {
-    return new Promise(function(resolve, reject) {
-      fs.access(d, fs.constants.W_OK, (err) => err ? reject(err) : resolve());
-    });
-  }
-
-  let stat;
-  try {
-    stat = await lstat(dir);
-  } catch(e) {
-    throw new Error(e.toString())
-  }
-
-  if(!stat.isDirectory()) {
-    throw new Error(`${dir} is not a directory`)
-  }
-
-  try {
-    await access(dir);
-  } catch(e) {
-    throw new Error(`Can't write to ${dir}. Make sure you have access to it`)
-  }
 }
 
 //Download a file from a url under the given file name and in the given directory
@@ -263,7 +219,7 @@ const downloadFile = async function(url, fileName, dir) {
       await downloading.setCompleted(0);
     } else {
       //check if the file has already finished downloading
-      if(completed == fileSize) {
+      if(downloading.files[fileName].completed == fileSize) {
         return;
       }
 
@@ -303,8 +259,8 @@ const downloadFile = async function(url, fileName, dir) {
         let newProgress = Math.round(completed/fileSize*100*100)/100
         if(newProgress - progress > 0.5) {
           writeProgress(`Downloading ${fileName}: ${newProgress}%`);
+          progress = newProgress;
         }
-        progress = newProgress;
       }
     })
   })();

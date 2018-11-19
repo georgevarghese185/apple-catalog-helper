@@ -1,7 +1,10 @@
 const http = require('http');
 const fetch = require('node-fetch');
 const xml2js = require('xml2js')
-
+const ask = require('./ask')
+const verifyDir = require('./files').verifyDir
+const downloadFile = require('./download').downloadFile
+const deleteDownloadJSON = require('./download').deleteDownloadJSON
 
 //Uses xml2js to parse the given XML string to a JSON
 const parseXMLString = async function(xmlString) {
@@ -111,16 +114,55 @@ const getVersions = async function(catalog) {
   return versions;
 }
 
-// const start = async function(catalogUrl) {
-//   console.log("Downloading catalog")
-//   let versions = await getVersions(catalogUrl);
-//
-//   let message = versions.map((v, i) => )
-// }
+const start = async function(catalogUrl) {
+  console.log("Downloading catalog..")
+  var catalog = await fetchXML(catalogUrl);
+  let versions = await getVersions(catalog);
 
-fetchXML('https://swscan.apple.com/content/catalogs/others/index-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog.gz')
-  .then(catalog =>
-    getVersions(catalog)
-      .then(r => console.log(JSON.stringify(r, null, 2)))
-      .catch(console.log)
-  ).catch(console.log)
+  let optionsMsg = versions.reduce((m, v, i) => m + `\n[${i+1}] ${v.buildInfo.versionNumber} (${v.buildInfo.build})`, "");
+
+  console.log("\nVerions available in catalog:\n" + optionsMsg);
+  let downloadVersion = parseInt(await ask(`\nWhich version are you looking to download? [${1}-${versions.length}]: `)) - 1;
+  if(Number.isNaN(downloadVersion) || downloadVersion < 0 || downloadVersion >= versions.length) {
+    throw new Error("Not a valid choice")
+  }
+
+  let choice = await ask(`
+Do you want to
+[1] Start downloading the required files
+[2] See the download links so you can download it manually
+` );
+
+  if(choice < 1 || choice > 2) {
+    throw new Error("Not a valid choice")
+  }
+
+  if(choice == 2) {
+    console.log("Download links: \n");
+    let links = versions[downloadVersion].files.reduce((m, url) => m + `\n${url}`, "")
+    console.log(links)
+  } else {
+    let downloadDir = await ask("Enter the path to where you want to download the files (Default: current directory): ");
+    downloadDir = downloadDir == "" ? __dirname : downloadDir;
+    await verifyDir(downloadDir);
+    let getFileName = url => url.substring(url.lastIndexOf('/') + 1)
+    let files = versions[downloadVersion].files;
+    for(var i = 0; i < files.length; i++) {
+      let url = files[i]
+      await downloadFile(url, getFileName(url), downloadDir)
+    }
+    await deleteDownloadJSON(downloadDir);
+  }
+}
+
+start('https://swscan.apple.com/content/catalogs/others/index-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog.gz')
+  .then(() => {})
+  .catch(console.log)
+
+//  test
+// fetchXML('https://swscan.apple.com/content/catalogs/others/index-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog.gz')
+//   .then(catalog =>
+//     getVersions(catalog)
+//       .then(r => console.log(JSON.stringify(r, null, 2)))
+//       .catch(console.log)
+//   ).catch(console.log)
