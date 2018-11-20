@@ -3,13 +3,24 @@ const fetch = require('node-fetch');
 const readline = require('readline');
 const ask = require('./ask')
 const verifyDir = require('./files').verifyDir
+const lstat = require('./files').lstat
+
+//Checks if the given file exists by seeing if fs.lstat throws an exception or not
+let fileExists = async function(file) {
+  try {
+    await lstat(file);
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
 
 // looks for a downloading.json file in the given dir. A downloading.json is a JSON
-// file containing information about how much of each file in that dir has already
-// been downloaded. The downloading.json can be updated as the files are downloaded
-// so that in case the script is interrupted halfway and restarted later, the file
-// can resume downloading from where it was last interrupted. If a downloading.json
-// is not found in the dir, a new empty one will be created
+// file that contains downloading filenames and their url and temporary name while
+// it's being downloaded (filename.part). If a download was interrupted, this file
+// can be checked in the next run to see if any files were still being downloaded
+// so that resuming the download can be attempted. If a downloading.json is not
+// found in the dir, a new empty one will be created
 const getDownloadingJSON = async function(dir) {
   let json;
   const jsonFile = `${dir}/downloading.json`;
@@ -17,16 +28,13 @@ const getDownloadingJSON = async function(dir) {
   //update the downloading.json file with the local `json` object
   let commit = function() {
     return new Promise(function(resolve, reject) {
-      fs.writeFile(jsonFile, JSON.stringify(json, null, 2), function(err) {
-        if(err) reject(err);
-        else resolve();
+      fs.unlink(jsonFile, e => {
+        fs.writeFile(jsonFile, JSON.stringify(json, null, 2), function(err) {
+          if(err) reject(err);
+          else resolve();
+        })
       })
     });
-  }
-
-  //same as `commit` but synchronous
-  let commitSync = function() {
-    fs.writeFileSync(jsonFile, JSON.stringify(json, null, 2));
   }
 
   //read an existing downloading.json file. Throws an error if it doesn't exist
@@ -35,6 +43,35 @@ const getDownloadingJSON = async function(dir) {
       fs.readFile(jsonFile, (err, data) =>{
         if(err) reject(err);
         else resolve(data);
+      })
+    });
+  }
+
+  //Create a new file in the dir (overwrite if it exists)
+  let createFile = function(fileName) {
+    return new Promise(function(resolve, reject) {
+      fs.open(`${dir}/${fileName}`, 'w+', (err, fd) => {
+        if(err) reject(err);
+        else {
+          fs.close(fd, () => {});
+          resolve();
+        }
+      })
+    });
+  }
+
+  //get the size of a file in the dir
+  let getSize = async function(fileName) {
+    let stats = await lstat(`${dir}/${fileName}`);
+    return stats.size;
+  }
+
+  //rename a file in the dir
+  let renameFile = function(oldName, newName) {
+    return new Promise(function(resolve, reject) {
+      fs.rename(`${dir}/${oldName}`, `${dir}/${newName}`, err => {
+        if (err) reject(err);
+        else resolve();
       })
     });
   }
@@ -49,35 +86,47 @@ const getDownloadingJSON = async function(dir) {
     json = {};
   }
 
+  //If any downloading file entries exist in the read json, (from a possible previous
+  //run that might have been interrupted) check if the incomplete `.part` file
+  //for that file exists. If it exists, download can be resumed on that .part file.
+  //If it doesn't exists, remove the file entry from downloading.json
+  Promise.all(
+    Object.keys(json).map(async f => {
+      let exists = await fileExists(`${dir}/${json[f].tempName}`);
+      if(!exists) {
+        delete json[f]
+        await commit();
+      }
+    })
+  );
+
+  //save whatever we have so far to downloading.json
+  await commit();
+
   return {
     //contains downloading/downloaded file names as keys, each one containing the
-    //total size of that file and how many bytes have been downloaded so far. do
-    //NOT update this object directly. Use the methods below to update it.
+    //url of the file and the temporary file name given to it while downloading.
+    //Do NOT update this object directly. Use the methods below to update it.
     files: json,
 
     //Add a new file entry to the downloading.json
-    newFile: async function(fileName) {
-      json[fileName] = {};
+    newFile: async function(fileName, url) {
+      let tempName = fileName + ".part";
+      json[fileName] = {url, tempName};
+      await createFile(tempName)
       await commit();
     },
 
-    //Set the completed amount of bytes for a file in downloading.json. Make sure
-    //you called `newFile` for the file first
-    setCompleted: async function(fileName, completed) {
-      json[fileName].completed = completed;
-      await commit();
+    //Get the completed number of bytes in the temporary file for the given fileName
+    getCompletedBytes: async function(fileName) {
+      return getSize(json[fileName].tempName);
     },
 
-    //same as `setCompleted` but synchronous
-    setCompletedSync: function(fileName, completed) {
-      json[fileName].completed = completed;
-      commitSync();
-    },
-
-    //Set the total file size for a file in downloading.json. Make sure
-    //you called `newFile` for the file first
-    setFileSize: async function(fileName, fileSize) {
-      json[fileName].fileSize = fileSize;
+    //Notify that a download completed. This will rename the temporary file to the
+    //actual file name and remove the file entry from downloading.json
+    downloadComplete: async function(fileName) {
+      await renameFile(json[fileName].tempName, fileName);
+      delete json[fileName];
       await commit();
     }
   }
@@ -92,8 +141,8 @@ const deleteDownloadJSON = function() {
 
 //Creates and returns an object representing a file to be downloaded. This file manages
 //the downloading and writing of bytes of the given file url and it also updates the
-//downloading.json (represented by the `downloading` object argument) as the file
-//download progresses
+//downloading.json (represented by the `downloading` object argument) when the download
+//completes
 const createDownloader = function (url, dir, fileName, fileSize, completed, downloading) {
   let fd;
   let _onProgress = () => {};
@@ -101,6 +150,7 @@ const createDownloader = function (url, dir, fileName, fileSize, completed, down
   let _reject;
   let _completed = JSON.parse(JSON.stringify(completed)); //make a local copy
   let _fileSize = JSON.parse(JSON.stringify(fileSize)); //make a local copy
+  let _tempName = downloading.files[fileName].tempName;
 
   //Return an error to the caller of `download()`
   let error = function(e) {
@@ -112,44 +162,29 @@ const createDownloader = function (url, dir, fileName, fileSize, completed, down
   let done = function() {
     fs.close(fd,(e) => {});
     if(_completed == _fileSize) {
-      _resolve();
+      downloading.downloadComplete(fileName).then(_resolve).catch(error);
     } else {
       error(new Error("Missing bytes"))
     }
   }
 
-  //For every new chunk of data, write it to the file and update the downloading.json
-  //of the progress. If an onProgress listener was supplied by `onProgress()`, it
-  //will also be called with the completed bytes and total size. (Useful for printng
-  //file download progress)
+  //For every new chunk of data, write it to the file. If an onProgress listener
+  //was supplied by `onProgress()`, it will also be called with the completed bytes
+  //and total size. (Useful for printng file download progress)
   let newChunk = function(buf) {
     fs.writeSync(fd, buf, 0, null, _completed);
     _completed += buf.length;
-    downloading.setCompletedSync(fileName, _completed);
     _onProgress(_completed, _fileSize);
   }
 
   //Open the file with the given mode
   let openFile = function(mode) {
-    return fs.openSync(`${dir}/${fileName}`, mode);
+    return fs.openSync(`${dir}/${_tempName}`, mode);
   }
 
   //Start downloading
   let start = function() {
-    //Try opening the file in read/write mode. If it fails, the file hasn't been
-    //created yet. In that case, create it by opening the file in write mode first,
-    //which will create the file, and then try opening it again in read/write mode
-    try {
-      fd = openFile('r+');
-    } catch(e) {
-      try {
-        fd = openFile('w');
-        fs.closeSync(fd);
-        fd = openFile('r+');
-      } catch(e2) {
-        throw e2;
-      }
-    }
+    fd = openFile('r+');
 
     let options = {};
 
@@ -208,38 +243,37 @@ const downloadFile = async function(url, fileName, dir) {
   let fileSize = await getFileSize(url);
   let completed = 0;
 
-  //If an entry for the file already exists in downloading.json, a previous download may have been interrupted
-  if(downloading.files[fileName]) {
-    if(!downloading.files[fileName].fileSize || downloading.files[fileName].fileSize != fileSize) {
-      await downloading.setFileSize(fileName, fileSize);
+  //If a file with this name already exists, ask the user if they want to skip re-downloading
+  //this file (which will overwrite the existing one)
+  let exists = await fileExists(`${dir}/${fileName}`);
+  if(exists) {
+    let skipFile = await ask(`${fileName} already exists in this directory. Do you want to `
+      + "skip downloading it? If you choose not to skip, the existing file will be "
+      + "overwritten.\nSkip file? [y/n]:"
+    );
+    if(skipFile.toLowerCase() == "y" || skipFile.toLowerCase() == "yes") {
+      return
     }
+  }
 
-    if(!downloading.files[fileName].completed) {
-      //initialize completed bytes to 0
-      await downloading.setCompleted(0);
+  //If an incomplete download of this file exists, ask the user if they want to
+  //continue from where it left off or redownload it.
+  if(downloading.files[fileName] && downloading.files[fileName].url == url) {
+    let existingFileSize = await downloading.getCompletedBytes(fileName);
+    let completedPercent = Math.round(existingFileSize/fileSize*100*100)/100
+
+    let resume = await ask(`${fileName} has been partially downloaded (${completedPercent}%). Would you like to resume it? [y/n]: `);
+    if(resume && (resume.toLowerCase() == "y" || resume.toLowerCase() == "yes")) {
+      completed = existingFileSize;
     } else {
-      //check if the file has already finished downloading
-      if(downloading.files[fileName].completed == fileSize) {
-        return;
-      }
-
-      //Ask the user if they would like to resume the partial download
-      let completedPercent = Math.round(downloading.files[fileName].completed/fileSize*100*100)/100
-      let resume = await ask(`${fileName} has been partially downloaded (${completedPercent}%). Would you like to resume it? [y/n]: `);
-
-      if(resume && (resume.toLowerCase() == "y" || resume.toLowerCase() == "yes")) {
-        completed = downloading.files[fileName].completed;
-      } else {
-        downloading.setCompleted(fileName, 0);
-      }
+      await downloading.newFile(fileName, url);
     }
   } else {
-    await downloading.newFile(fileName);
-    await downloading.setFileSize(fileName, fileSize);
-    await downloading.setCompleted(fileName, completed);
+    await downloading.newFile(fileName, url);
   }
 
   let downloader = createDownloader(url, dir, fileName, fileSize, completed, downloading);
+  //This function prints the file progress to the console as the download progresses
   (function(){
     let progress = 0;
     var writeProgress = function(s) {

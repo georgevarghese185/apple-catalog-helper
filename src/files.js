@@ -1,13 +1,15 @@
 const fs = require('fs');
 
+//fs.lstat as a promise
+const lstat = function(d) {
+  return new Promise(function(resolve, reject) {
+    fs.lstat(d, (err, stat) => err ? reject(err) : resolve(stat));
+  });
+}
+
 //Verify that the given dir exists, that it is a dir, and that we have sufficient
 //write permissions on it. Throws an error of these are not satisfied
 const verifyDir = async function(dir) {
-  let lstat = function(d) {
-    return new Promise(function(resolve, reject) {
-      fs.lstat(d, (err, stat) => err ? reject(err) : resolve(stat));
-    });
-  }
   let access = function(d) {
     return new Promise(function(resolve, reject) {
       fs.access(d, fs.constants.W_OK, (err) => err ? reject(err) : resolve());
@@ -33,5 +35,6 @@ const verifyDir = async function(dir) {
 }
 
 module.exports = {
+  lstat,
   verifyDir
 }
