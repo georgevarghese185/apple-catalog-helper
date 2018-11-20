@@ -5,6 +5,10 @@ const ask = require('./ask')
 const verifyDir = require('./files').verifyDir
 const lstat = require('./files').lstat
 const fileExists = require('./files').fileExists;
+const renameFile = require('./files').renameFile;
+const readFile = require('./files').readFile;
+const writeFile = require('./files').writeFile;
+const deleteFile = require('./files').deleteFile;
 
 // looks for a downloading.json file in the given dir. A downloading.json is a JSON
 // file that contains downloading filenames and their url and temporary name while
@@ -17,25 +21,9 @@ const getDownloadingJSON = async function(dir) {
   const jsonFile = `${dir}/downloading.json`;
 
   //update the downloading.json file with the local `json` object
-  let commit = function() {
-    return new Promise(function(resolve, reject) {
-      fs.unlink(jsonFile, e => {
-        fs.writeFile(jsonFile, JSON.stringify(json, null, 2), function(err) {
-          if(err) reject(err);
-          else resolve();
-        })
-      })
-    });
-  }
-
-  //read an existing downloading.json file. Throws an error if it doesn't exist
-  let readJSON = function() {
-    return new Promise(function(resolve, reject) {
-      fs.readFile(jsonFile, (err, data) =>{
-        if(err) reject(err);
-        else resolve(data);
-      })
-    });
+  let commit = async function() {
+    await deleteFile(jsonFile);
+    await writeFile(jsonFile, JSON.stringify(json, null, 2));
   }
 
   //Create a new file in the dir (overwrite if it exists)
@@ -57,21 +45,11 @@ const getDownloadingJSON = async function(dir) {
     return stats.size;
   }
 
-  //rename a file in the dir
-  let renameFile = function(oldName, newName) {
-    return new Promise(function(resolve, reject) {
-      fs.rename(`${dir}/${oldName}`, `${dir}/${newName}`, err => {
-        if (err) reject(err);
-        else resolve();
-      })
-    });
-  }
-
   //attempt to read an existing downloading.json file and load it into the local
   //`json` object. If it failed to read an existing downloading.json, it will just
   //initialize `json` to an empty object
   try {
-    let file = await readJSON();
+    let file = await readFile(jsonFile);
     json = JSON.parse(file.toString());
   } catch(e) {
     json = {};
@@ -116,7 +94,9 @@ const getDownloadingJSON = async function(dir) {
     //Notify that a download completed. This will rename the temporary file to the
     //actual file name and remove the file entry from downloading.json
     downloadComplete: async function(fileName) {
-      await renameFile(json[fileName].tempName, fileName);
+      await renameFile(
+        `${dir}/${json[fileName].tempName}`,
+        `${dir}/${fileName}`);
       delete json[fileName];
       await commit();
     }
@@ -125,9 +105,9 @@ const getDownloadingJSON = async function(dir) {
 
 //Delete a downloading.json file in a directory. Best to call this once you're done
 //downloading all required files in that dir
-const deleteDownloadJSON = function(dir) {
+const deleteDownloadJSON = async function(dir) {
   const jsonFile = `${dir}/downloading.json`;
-  fs.unlink(jsonFile, e => {})
+  await deleteFile(jsonFile);
 }
 
 //Creates and returns an object representing a file to be downloaded. This file manages

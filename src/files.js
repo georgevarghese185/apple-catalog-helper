@@ -54,9 +54,47 @@ const fileExists = async function(file) {
   }
 }
 
+//rename a file
+const renameFile = function(oldFile, newFile) {
+  return new Promise(function(resolve, reject) {
+    fs.rename(oldFile, newFile, err => {
+      if (err) reject(err);
+      else resolve();
+    })
+  });
+}
+
+const deleteFile = function(file) {
+  return new Promise(function(resolve, reject) {
+    fs.unlink(file, e => {resolve()});
+  });
+}
+
+const readFile = function(file) {
+  return new Promise(function(resolve, reject) {
+    fs.readFile(file, (err, data) =>{
+      if(err) reject(err);
+      else resolve(data);
+    })
+  });
+}
+
+const writeFile = function(file, data) {
+  return new Promise(function(resolve, reject) {
+    fs.writeFile(file, data, function(err) {
+      if(err) reject(err);
+      else resolve();
+    })
+  });
+}
+
 module.exports = {
   lstat,
   verifyDir,
   makeDir,
-  fileExists
+  fileExists,
+  renameFile,
+  deleteFile,
+  readFile,
+  writeFile
 }

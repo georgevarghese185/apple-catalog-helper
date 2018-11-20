@@ -7,6 +7,9 @@ const makeDir = require('./files').makeDir
 const downloadFile = require('./download').downloadFile
 const deleteDownloadJSON = require('./download').deleteDownloadJSON;
 const fileExists = require('./files').fileExists;
+const renameFile = require('./files').renameFile;
+const readFile = require('./files').readFile;
+const writeFile = require('./files').writeFile;
 
 //Uses xml2js to parse the given XML string to a JSON
 const parseXMLString = async function(xmlString) {
@@ -116,6 +119,24 @@ const getVersions = async function(catalog) {
   return versions;
 }
 
+const renameInstallESD = async function(dir) {
+  console.log("\n\nRenaming InstallESDDmg.pkg -> InstallESD.dmg");
+  await renameFile(`${dir}/InstallESDDmg.pkg`, `${dir}/InstallESD.dmg`);
+
+  console.log("Updating InstallInfo.plist..")
+  let info = (await readFile(`${dir}/InstallInfo.plist`)).toString();
+
+  //remove chunklistURL and chunklistid keys
+  info = info.replace(/[\n\r]\s+<key>chunklistURL<\/key>[\n\r]\s+<string>InstallESDDmg\.chunklist<\/string>/, "");
+  info = info.replace(/[\n\r]\s+<key>chunklistid<\/key>[\n\r]\s+<string>com\.apple\.chunklist\.InstallESDDmg<\/string>/, "");
+
+  //rename InstallESDDmg to InstallESD
+  info = info.replace("InstallESDDmg.pkg", "InstallESD.dmg")
+  info = info.replace("com.apple.pkg.InstallESDDmg", "com.apple.dmg.InstallESD")
+
+  await writeFile(`${dir}/InstallInfo.plist`, info);
+}
+
 const start = async function(catalogUrl) {
   let pathSeparator = process.platform == "win32" ? "\\" : "/"
   let currentDir = process.argv[0].substring(0, process.argv[0].lastIndexOf(pathSeparator)); //only works in built binary
@@ -162,6 +183,14 @@ Do you want to
     }
     await deleteDownloadJSON(downloadDir);
     console.log("All required files have been downloaded!");
+    console.log("\nWould you like to automatically rename InstallESDDmg.pkg to InstallESD.dmg " +
+      "and update InstallInfo.plist? This step is required for creating a macOS installer from these files");
+    let rename = await ask("\nRename file and update plist [y/n]: ");
+    if(rename.toLowerCase() == "y" || rename.toLowerCase == "yes") {
+      await renameInstallESD(downloadDir);
+    }
+
+    await ask("\n\nDone! Press any key to exit..");
   }
 }
 
