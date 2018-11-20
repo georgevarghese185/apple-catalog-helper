@@ -161,6 +161,7 @@ Do you want to
       await downloadFile(url, getFileName(url), downloadDir)
     }
     await deleteDownloadJSON(downloadDir);
+    console.log("All required files have been downloaded!");
   }
 }
 

@@ -238,9 +238,9 @@ const downloadFile = async function(url, fileName, dir) {
   //this file (which will overwrite the existing one)
   let exists = await fileExists(`${dir}/${fileName}`);
   if(exists) {
-    let skipFile = await ask(`${fileName} already exists in this directory. Do you want to `
+    let skipFile = await ask(`\n${fileName} already exists in this directory. Do you want to `
       + "skip downloading it? If you choose not to skip, the existing file will be "
-      + "overwritten.\n\nSkip file? [y/n]:"
+      + "overwritten.\n\nSkip file? [y/n]: "
     );
     if(skipFile.toLowerCase() == "y" || skipFile.toLowerCase() == "yes") {
       //delete any temporary download files if they exist
@@ -257,7 +257,7 @@ const downloadFile = async function(url, fileName, dir) {
     let existingFileSize = await downloading.getCompletedBytes(fileName);
     let completedPercent = Math.round(existingFileSize/fileSize*100*100)/100
 
-    let resume = await ask(`${fileName} has been partially downloaded (${completedPercent}%). Would you like to resume it? [y/n]: `);
+    let resume = await ask(`\n${fileName} has been partially downloaded (${completedPercent}%). Would you like to resume it? [y/n]: `);
     if(resume && (resume.toLowerCase() == "y" || resume.toLowerCase() == "yes")) {
       completed = existingFileSize;
     } else {
