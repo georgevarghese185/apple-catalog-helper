@@ -252,6 +252,10 @@ const downloadFile = async function(url, fileName, dir) {
       + "overwritten.\n\nSkip file? [y/n]:"
     );
     if(skipFile.toLowerCase() == "y" || skipFile.toLowerCase() == "yes") {
+      //delete any temporary download files if they exist
+      if(downloading.files[fileName]) {
+        fs.unlink(`${dir}/${downloading.files[fileName].tempName}`, e => {})
+      }
       return
     }
   }
