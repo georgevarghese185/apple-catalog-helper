@@ -134,7 +134,7 @@ const getDownloadingJSON = async function(dir) {
 
 //Delete a downloading.json file in a directory. Best to call this once you're done
 //downloading all required files in that dir
-const deleteDownloadJSON = function() {
+const deleteDownloadJSON = function(dir) {
   const jsonFile = `${dir}/downloading.json`;
   fs.unlink(jsonFile, e => {})
 }
