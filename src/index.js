@@ -203,14 +203,14 @@ Do you want to
   }
 }
 
-start('https://swscan.apple.com/content/catalogs/others/index-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog.gz')
-  .then(() => {})
-  .catch(console.log)
 
-//  test
-// fetchXML('https://swscan.apple.com/content/catalogs/others/index-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog.gz')
-//   .then(catalog =>
-//     getVersions(catalog)
-//       .then(r => console.log(JSON.stringify(r, null, 2)))
-//       .catch(console.log)
-//   ).catch(console.log)
+if(process.argv[1] == "") {
+  ask("Please pass an Apple Catalog URL").then(() => {}).catch(() => {});
+} else {
+  start(process.argv[2]).then(() => {})
+  .catch((e) => {
+    console.log("\n")
+    console.log(e);
+    ask("\nPress any key to exit..").then(() => {}).catch(() => {});
+  })
+}
