@@ -266,10 +266,8 @@ const downloadFile = async function(url, fileName, dir) {
         process.stdout.write("\n");
       } else {
         let newProgress = Math.round(completed/fileSize*100*100)/100
-        if(newProgress - progress > 0.5) {
-          writeProgress(`Downloading ${fileName}: ${newProgress}%`);
-          progress = newProgress;
-        }
+        writeProgress(`Downloading ${fileName}: ${newProgress}%`);
+        progress = newProgress;
       }
     })
   })();
