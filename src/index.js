@@ -3,8 +3,10 @@ const fetch = require('node-fetch');
 const xml2js = require('xml2js')
 const ask = require('./ask')
 const verifyDir = require('./files').verifyDir
+const makeDir = require('./files').makeDir
 const downloadFile = require('./download').downloadFile
-const deleteDownloadJSON = require('./download').deleteDownloadJSON
+const deleteDownloadJSON = require('./download').deleteDownloadJSON;
+const fileExists = require('./files').fileExists;
 
 //Uses xml2js to parse the given XML string to a JSON
 const parseXMLString = async function(xmlString) {
@@ -115,6 +117,8 @@ const getVersions = async function(catalog) {
 }
 
 const start = async function(catalogUrl) {
+  let pathSeparator = process.platform == "win32" ? "\\" : "/"
+  let currentDir = process.argv[0].substring(0, process.argv[0].lastIndexOf(pathSeparator)); //only works in built binary
   console.log("Downloading catalog..")
   var catalog = await fetchXML(catalogUrl);
   let versions = await getVersions(catalog);
@@ -142,9 +146,14 @@ Do you want to
     let links = versions[downloadVersion].files.reduce((m, url) => m + `\n${url}`, "")
     console.log(links)
   } else {
-    let downloadDir = await ask("Enter the path to where you want to download the files: ");
+    let downloadDir = await ask(`Enter the path to where you want to download the files (Default: ${currentDir})\nEnter path: `);
+    downloadDir = downloadDir == "" ? currentDir : downloadDir;
     console.log("\n")
     await verifyDir(downloadDir);
+    downloadDir = downloadDir + "/SharedSupport";
+    if(!await fileExists(downloadDir)) {
+      await makeDir(downloadDir)
+    }
     let getFileName = url => url.substring(url.lastIndexOf('/') + 1)
     let files = versions[downloadVersion].files;
     for(var i = 0; i < files.length; i++) {

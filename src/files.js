@@ -34,7 +34,29 @@ const verifyDir = async function(dir) {
   }
 }
 
+//Create a directory
+const makeDir = function (dir) {
+  return new Promise(function(resolve, reject) {
+    fs.mkdir(dir, (err) => {
+      if(err) reject(err);
+      else resolve()
+    })
+  });
+}
+
+//Checks if the given file exists by seeing if fs.lstat throws an exception or not
+const fileExists = async function(file) {
+  try {
+    await lstat(file);
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
 module.exports = {
   lstat,
-  verifyDir
+  verifyDir,
+  makeDir,
+  fileExists
 }

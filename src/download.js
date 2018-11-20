@@ -4,16 +4,7 @@ const readline = require('readline');
 const ask = require('./ask')
 const verifyDir = require('./files').verifyDir
 const lstat = require('./files').lstat
-
-//Checks if the given file exists by seeing if fs.lstat throws an exception or not
-let fileExists = async function(file) {
-  try {
-    await lstat(file);
-    return true;
-  } catch(e) {
-    return false;
-  }
-}
+const fileExists = require('./files').fileExists;
 
 // looks for a downloading.json file in the given dir. A downloading.json is a JSON
 // file that contains downloading filenames and their url and temporary name while
