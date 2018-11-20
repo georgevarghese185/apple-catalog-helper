@@ -204,8 +204,8 @@ Do you want to
 }
 
 
-if(process.argv[1] == "") {
-  ask("Please pass an Apple Catalog URL").then(() => {}).catch(() => {});
+if(!process.argv[2]) {
+  ask("Please pass an Apple Catalog URL\nPress any key to exit..").then(() => {}).catch(() => {});
 } else {
   start(process.argv[2]).then(() => {})
   .catch((e) => {
