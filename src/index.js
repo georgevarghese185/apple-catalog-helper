@@ -143,6 +143,7 @@ Do you want to
     console.log(links)
   } else {
     let downloadDir = await ask("Enter the path to where you want to download the files: ");
+    console.log("\n")
     await verifyDir(downloadDir);
     let getFileName = url => url.substring(url.lastIndexOf('/') + 1)
     let files = versions[downloadVersion].files;

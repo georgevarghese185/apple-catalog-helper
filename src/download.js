@@ -249,7 +249,7 @@ const downloadFile = async function(url, fileName, dir) {
   if(exists) {
     let skipFile = await ask(`${fileName} already exists in this directory. Do you want to `
       + "skip downloading it? If you choose not to skip, the existing file will be "
-      + "overwritten.\nSkip file? [y/n]:"
+      + "overwritten.\n\nSkip file? [y/n]:"
     );
     if(skipFile.toLowerCase() == "y" || skipFile.toLowerCase() == "yes") {
       return
@@ -299,6 +299,7 @@ const downloadFile = async function(url, fileName, dir) {
     })
   })();
   await downloader.download();
+  console.log("\n")
 }
 
 module.exports = {
