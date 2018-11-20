@@ -237,7 +237,7 @@ const downloadFile = async function(url, fileName, dir) {
     let existingFileSize = await downloading.getCompletedBytes(fileName);
     let completedPercent = Math.round(existingFileSize/fileSize*100*100)/100
 
-    let resume = await ask(`\n${fileName} has been partially downloaded (${completedPercent}%). Would you like to resume it? [y/n]: `);
+    let resume = await ask(`\n\n${fileName} has been partially downloaded (${completedPercent}%). Would you like to resume it? [y/n]: `);
     if(resume && (resume.toLowerCase() == "y" || resume.toLowerCase() == "yes")) {
       completed = existingFileSize;
     } else {

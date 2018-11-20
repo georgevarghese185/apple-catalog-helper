@@ -146,17 +146,20 @@ const start = async function(catalogUrl) {
 
   let optionsMsg = versions.reduce((m, v, i) => m + `\n[${i+1}] ${v.buildInfo.versionNumber} (${v.buildInfo.build})`, "");
 
-  console.log("\nVerions available in catalog:\n" + optionsMsg);
+  console.log("\nmacOS Verions available in catalog:\n" + optionsMsg);
   let downloadVersion = parseInt(await ask(`\nWhich version are you looking to download? [${1}-${versions.length}]: `)) - 1;
   if(Number.isNaN(downloadVersion) || downloadVersion < 0 || downloadVersion >= versions.length) {
     throw new Error("Not a valid choice")
   }
 
-  let choice = await ask(`
+  console.log(`
+
 Do you want to
 [1] Start downloading the required files
 [2] See the download links so you can download it manually
 ` );
+
+  let choice = await ask("\Your choice: ")
 
   if(choice < 1 || choice > 2) {
     throw new Error("Not a valid choice")
@@ -167,22 +170,28 @@ Do you want to
     let links = versions[downloadVersion].files.reduce((m, url) => m + `\n${url}`, "")
     console.log(links)
   } else {
-    let downloadDir = await ask(`Enter the path to where you want to download the files (Default: ${currentDir})\nEnter path: `);
+    console.log(`\n\nEnter the path where you want to download the files (Default: ${currentDir})`);
+    let downloadDir = await ask("\nEnter path: ");
     downloadDir = downloadDir == "" ? currentDir : downloadDir;
     console.log("\n")
+
     await verifyDir(downloadDir);
     downloadDir = downloadDir + "/SharedSupport";
     if(!await fileExists(downloadDir)) {
       await makeDir(downloadDir)
     }
+
     let getFileName = url => url.substring(url.lastIndexOf('/') + 1)
     let files = versions[downloadVersion].files;
+
     for(var i = 0; i < files.length; i++) {
       let url = files[i]
       await downloadFile(url, getFileName(url), downloadDir)
     }
+
     await deleteDownloadJSON(downloadDir);
-    console.log("All required files have been downloaded!");
+    console.log("\n\n\nAll required files have been downloaded!");
+
     console.log("\nWould you like to automatically rename InstallESDDmg.pkg to InstallESD.dmg " +
       "and update InstallInfo.plist? This step is required for creating a macOS installer from these files");
     let rename = await ask("\nRename file and update plist [y/n]: ");
