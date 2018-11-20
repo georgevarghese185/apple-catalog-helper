@@ -142,8 +142,7 @@ Do you want to
     let links = versions[downloadVersion].files.reduce((m, url) => m + `\n${url}`, "")
     console.log(links)
   } else {
-    let downloadDir = await ask("Enter the path to where you want to download the files (Default: current directory): ");
-    downloadDir = downloadDir == "" ? __dirname : downloadDir;
+    let downloadDir = await ask("Enter the path to where you want to download the files: ");
     await verifyDir(downloadDir);
     let getFileName = url => url.substring(url.lastIndexOf('/') + 1)
     let files = versions[downloadVersion].files;
