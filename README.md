@@ -23,7 +23,7 @@ Go to the [releases](https://github.com/georgevarghese185/apple-catalog-helper/r
 ```
 cd C:\Users\Me\Desktop\macos-files\
 ```
-* Run the tool by passing it an Apple Catalog URL (eg: use [this]() url for Mojave 10.14 versions)
+* Run the tool by passing it an Apple Catalog URL (eg: use [this](https://swscan.apple.com/content/catalogs/others/index-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog.gz) url for Mojave 10.14 versions)
 
 Windows (Replace the URL with a different one if you need to)
 ```bat
